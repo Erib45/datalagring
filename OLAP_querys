@@ -1,0 +1,96 @@
+SELECT
+    TO_CHAR(ts.date, 'Month') AS month,
+    COUNT(l.lesson_id) AS total_lessons,
+    COUNT(CASE WHEN gl.lesson_id IS NULL AND e.lesson_id IS NULL THEN l.lesson_id END) AS individual_lessons,
+    COUNT(CASE WHEN e.lesson_id IS NULL THEN gl.lesson_id END) AS group_lessons,
+    COUNT(e.lesson_id) AS ensembles
+FROM
+    time_slot ts
+JOIN
+    lesson l ON ts.time_slot_id = l.time_slot_id
+LEFT JOIN
+    group_lesson gl ON l.lesson_id = gl.lesson_id
+LEFT JOIN
+    ensembles e ON l.lesson_id = e.lesson_id
+WHERE
+    EXTRACT(YEAR FROM ts.date) = 2023
+GROUP BY
+    TO_CHAR(ts.date, 'Month')
+ORDER BY
+    MIN(ts.date);
+
+
+
+
+
+
+
+SELECT
+    COALESCE(num_siblings, 0) AS num_siblings,
+    COUNT(student_id) AS student_count
+FROM (
+    SELECT
+        s.student_id,
+        COUNT(ss.student_sibbling_id) AS num_siblings
+    FROM
+        student s
+    LEFT JOIN
+        sibling ss ON s.student_id = ss.student_id
+    GROUP BY
+        s.student_id
+) AS student_siblings
+GROUP BY
+    COALESCE(num_siblings, 0)
+ORDER BY
+    COALESCE(num_siblings, 0);
+
+
+
+
+SELECT 
+    i.instructor_id,
+    pd.first_name,
+    pd.last_name,
+    COUNT(ts.time_slot_id) AS "No of lessons"
+FROM 
+    instructor i
+JOIN 
+    personaldetails pd ON i.personal_number = pd.personal_number
+JOIN 
+    time_slot ts ON i.instructor_id = ts.instructor_id
+WHERE 
+    EXTRACT(MONTH FROM ts.date) = 1
+GROUP BY 
+    i.instructor_id, pd.first_name, pd.last_name;
+	
+
+
+
+
+SELECT
+    e.lesson_id,
+    e.genre,
+    g.max_students,
+    TO_CHAR(ts.date, 'Dy') AS weekday,
+    COUNT(b.student_id) AS attendees,
+    CASE
+        WHEN COUNT(b.student_id) >= g.max_students THEN 'Full Booked'
+        WHEN COUNT(b.student_id) >= g.max_students - 2 THEN '1-2 Seats Left'
+        ELSE 'More Seats Left'
+    END AS booking_status
+FROM
+    ensembles e
+JOIN
+    group_lesson g ON e.lesson_id = g.lesson_id
+JOIN
+    lesson l ON e.lesson_id = l.lesson_id
+JOIN
+    time_slot ts ON l.time_slot_id = ts.time_slot_id
+LEFT JOIN
+    booking b ON e.lesson_id = b.lesson_id
+WHERE
+    ts.date BETWEEN CURRENT_DATE + INTERVAL '1 day' AND CURRENT_DATE + INTERVAL '7 days'
+GROUP BY
+    e.lesson_id, e.genre, g.max_students, ts.date
+ORDER BY
+    TO_CHAR(ts.date, 'Dy'), e.genre;
